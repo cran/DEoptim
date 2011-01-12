@@ -48,7 +48,6 @@ DEoptim.control <- function(VTR = -Inf, strategy = 2, bs = FALSE, NP = 50,
 }
 
 DEoptim <- function(fn, lower, upper, control = DEoptim.control(), ...) {
-  fn1  <- function(par) fn(par, ...)
   if (length(lower) != length(upper))
     stop("'lower' and 'upper' are not of same length")
   if (!is.vector(lower))
@@ -82,7 +81,7 @@ DEoptim <- function(fn, lower, upper, control = DEoptim.control(), ...) {
     warning("For many problems it is best to set 'NP' (in 'control') to be at least ten times the length of the parameter vector. \n", immediate. = TRUE)
   if (!is.null(ctrl$initialpop)) {
     ctrl$specinitialpop <- TRUE
-    if(!identical(as.numeric(dim(ctrl$initialpop)), c(ctrl$NP, ctrl$npar)))
+    if(!identical(as.numeric(dim(ctrl$initialpop)), as.numeric(c(ctrl$NP, ctrl$npar))))
       stop("Initial population is not a matrix with dim. NP x length(upper).")
   }
   else {
@@ -94,7 +93,7 @@ DEoptim <- function(fn, lower, upper, control = DEoptim.control(), ...) {
   ctrl$specinitialpop <- as.numeric(ctrl$specinitialpop)
   ctrl$initialpop <- as.numeric(ctrl$initialpop)
   
-  outC <- .Call("DEoptimC", lower, upper, fn1, ctrl, new.env(),
+  outC <- .Call("DEoptimC", lower, upper, fn, ctrl, new.env(),
                PACKAGE = "DEoptim")
   ##
   if (length(outC$storepop) > 0) {

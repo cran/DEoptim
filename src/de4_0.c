@@ -34,13 +34,11 @@ void devol(double VTR, double f_weight, double fcross, int i_bs_flag,
            int i_strategy, int i_D, int i_NP, int i_itermax,
            double *initialpopv, int i_storepopfreq, int i_storepopfrom,
            int i_specinitialpop, int i_check_winner, int i_av_winner,
-           double **gta_popP, double **gta_oldP, double **gta_newP, double *gt_bestP,
-           double *gta_popC, double *gta_oldC, double *gta_newC, double *gt_bestC,
-           double *t_bestitP, double *t_tmpP, double *tempP,
+           double *gt_bestP, double *gt_bestC,
            double *gd_pop, double *gd_storepop, double *gd_bestmemit, double *gd_bestvalit,
            int *gi_iter, double i_pPct, long *l_nfeval);
-void permute(int ia_urn2[], int i_urn2_depth, int i_NP, int i_avoid);
-double evaluate(long *l_nfeval, double *param, SEXP par, SEXP fcall, SEXP env);
+void permute(int ia_urn2[], int i_urn2_depth, int i_NP, int i_avoid, int ia_urn1[]);
+double evaluate(long *l_nfeval, SEXP par, SEXP fcall, SEXP env);
 
 
 /*------General functions-----------------------------------------*/
@@ -96,37 +94,18 @@ SEXP DEoptimC(SEXP lower, SEXP upper, SEXP fn, SEXP control, SEXP rho)
   /* p to define the top 100p% best solutions */
   double i_pPct = NUMERIC_VALUE(getListElement(control, "p"));
 
-  /* Data structures for parameter vectors */
-  double **gta_popP = (double **)R_alloc(i_NP*2,sizeof(double *));
-  for (int i = 0; i < (i_NP*2); i++) 
-    gta_popP[i] = (double *)R_alloc(i_D,sizeof(double));
-
-  double **gta_oldP = (double **)R_alloc(i_NP,sizeof(double *));
-  for (int i = 0; i < i_NP; i++) 
-    gta_oldP[i] = (double *)R_alloc(i_D,sizeof(double));
-
-  double **gta_newP = (double **)R_alloc(i_NP,sizeof(double *));
-  for (int i = 0; i < i_NP; i++) 
-    gta_newP[i] = (double *)R_alloc(i_D,sizeof(double));
-  
-  double *gt_bestP = (double *)R_alloc(1,sizeof(double) * i_D);
-
-  /* Data structures for objective function values associated with
-   * parameter vectors */
-  double *gta_popC = (double *)R_alloc(i_NP*2,sizeof(double));
-  double *gta_oldC = (double *)R_alloc(i_NP,sizeof(double));
-  double *gta_newC = (double *)R_alloc(i_NP,sizeof(double));
-  double *gt_bestC = (double *)R_alloc(1,sizeof(double));
-
-  double *t_bestitP = (double *)R_alloc(1,sizeof(double) * i_D);
-  double *t_tmpP = (double *)R_alloc(1,sizeof(double) * i_D);
-  double *tempP = (double *)R_alloc(1,sizeof(double) * i_D);
-
   int i_nstorepop = ceil((i_itermax - i_storepopfrom) / i_storepopfreq);
-  double *gd_pop = (double *)R_alloc(i_NP*i_D,sizeof(double));
-  double *gd_storepop = (double *)R_alloc(i_NP,sizeof(double) * i_D * i_nstorepop);
-  double *gd_bestmemit = (double *)R_alloc(i_itermax*i_D,sizeof(double));
-  double *gd_bestvalit = (double *)R_alloc(i_itermax,sizeof(double));
+  /* Use S_alloc, since it initializes with zeros FIXME: these should be SEXP */
+  double *gd_pop = (double *)S_alloc(i_NP*i_D,sizeof(double));
+  double *gd_storepop = (double *)S_alloc(i_NP,sizeof(double) * i_D * i_nstorepop);
+  double *gd_bestmemit = (double *)S_alloc(i_itermax*i_D,sizeof(double));
+  double *gd_bestvalit = (double *)S_alloc(i_itermax,sizeof(double));
+
+  PROTECT(sexp_bestmem = NEW_NUMERIC(i_D));
+  PROTECT(sexp_bestval = NEW_NUMERIC(1));
+  double *gt_bestP     = REAL(sexp_bestmem);
+  double *gt_bestC     = REAL(sexp_bestval);
+
   int gi_iter = 0;
 
   /*---optimization--------------------------------------*/
@@ -134,17 +113,10 @@ SEXP DEoptimC(SEXP lower, SEXP upper, SEXP fn, SEXP control, SEXP rho)
         i_strategy, i_D, i_NP, i_itermax,
         initialpopv, i_storepopfrom, i_storepopfreq, 
         i_specinitialpop, i_check_winner, i_av_winner,
-        gta_popP, gta_oldP, gta_newP, gt_bestP,
-        gta_popC, gta_oldC, gta_newC, gt_bestC,
-        t_bestitP, t_tmpP, tempP,
+        gt_bestP, gt_bestC,
         gd_pop, gd_storepop, gd_bestmemit, gd_bestvalit,
         &gi_iter, i_pPct, &l_nfeval);
   /*---end optimization----------------------------------*/
-
-  PROTECT(sexp_bestmem = NEW_NUMERIC(i_D));
-  for (i = 0; i < i_D; i++) {
-    NUMERIC_POINTER(sexp_bestmem)[i] = gt_bestP[i];
-  }
 
   j = i_NP * i_D;
   PROTECT(sexp_pop = NEW_NUMERIC(j));
@@ -165,15 +137,8 @@ SEXP DEoptimC(SEXP lower, SEXP upper, SEXP fn, SEXP control, SEXP rho)
   for (i = 0; i < j; i++)
     NUMERIC_POINTER(sexp_bestvalit)[i] = gd_bestvalit[i];
 
-  PROTECT(sexp_bestval = NEW_NUMERIC(1));
-  NUMERIC_POINTER(sexp_bestval)[0] = gt_bestC[0];
-
-  PROTECT(sexp_nfeval = NEW_INTEGER(1));
-  //INTEGER_POINTER(sexp_nfeval)[0] = 0;
-  INTEGER_POINTER(sexp_nfeval)[0] = l_nfeval;
-
-  PROTECT(sexp_iter = NEW_INTEGER(1));
-  INTEGER_POINTER(sexp_iter)[0] = gi_iter;
+  PROTECT(sexp_nfeval = ScalarInteger(l_nfeval));
+  PROTECT(sexp_iter = ScalarInteger(gi_iter));
 
   PROTECT(out = NEW_LIST(8));
   SET_VECTOR_ELT(out, 0, sexp_bestmem);
@@ -207,9 +172,7 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
            int i_strategy, int i_D, int i_NP, int i_itermax,
            double *initialpopv, int i_storepopfrom, int i_storepopfreq, 
            int i_specinitialpop, int i_check_winner, int i_av_winner,
-           double **gta_popP, double **gta_oldP, double **gta_newP, double *gt_bestP,
-           double *gta_popC, double *gta_oldC, double *gta_newC, double *gt_bestC,
-           double *t_bestitP, double *t_tmpP, double *tempP,
+           double *gt_bestP, double *gt_bestC,
            double *gd_pop, double *gd_storepop, double *gd_bestmemit, double *gd_bestvalit,
            int *gi_iter, double i_pPct, long *l_nfeval)
 {
@@ -218,11 +181,36 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
 
   /* initialize parameter vector to pass to evaluate function */
   SEXP par; PROTECT(par = NEW_NUMERIC(i_D));
+  double *d_par = REAL(par);
   
-  int i, j, k, x;  /* counting variables */
+  /* Data structures for parameter vectors */
+  double **gta_popP = (double **)R_alloc(i_NP*2,sizeof(double *));
+  for (int i = 0; i < (i_NP*2); i++) 
+    gta_popP[i] = (double *)R_alloc(i_D,sizeof(double));
+
+  double **gta_oldP = (double **)R_alloc(i_NP,sizeof(double *));
+  for (int i = 0; i < i_NP; i++) 
+    gta_oldP[i] = (double *)R_alloc(i_D,sizeof(double));
+
+  double **gta_newP = (double **)R_alloc(i_NP,sizeof(double *));
+  for (int i = 0; i < i_NP; i++) 
+    gta_newP[i] = (double *)R_alloc(i_D,sizeof(double));
+  
+  /* Data structures for objective function values associated with
+   * parameter vectors */
+  double *gta_popC = (double *)R_alloc(i_NP*2,sizeof(double));
+  double *gta_oldC = (double *)R_alloc(i_NP,sizeof(double));
+  double *gta_newC = (double *)R_alloc(i_NP,sizeof(double));
+
+  double *t_bestitP = (double *)R_alloc(1,sizeof(double) * i_D);
+  double *t_tmpP = (double *)R_alloc(1,sizeof(double) * i_D);
+  double *tempP = (double *)R_alloc(1,sizeof(double) * i_D);
+
+  int i, j, k;  /* counting variables */
   int i_r1, i_r2, i_r3, i_r4;  /* placeholders for random indexes */
 
   int ia_urn2[URN_DEPTH];
+  int ia_urnTemp[i_NP];
   int i_nstorepop, i_xav;
   i_nstorepop = ceil((i_itermax - i_storepopfrom) / i_storepopfreq);
   
@@ -232,7 +220,6 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
   double *fa_maxbound = upper;
   double f_jitter, f_dither;
  
-  double t_bestitC;
   double t_tmpC, tmp_best; 
   
   double initialpop[i_NP][i_D];
@@ -250,34 +237,6 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
 
   GetRNGstate();
 
-  gta_popP[0][0] = 0;
- 
-  /* initialize initial popuplation */
-  for (int i = 0; i < i_NP; i++) {
-    for (int j = 0; j < i_D; j++) {
-      initialpop[i][j] = 0.0;
-    }
-  }
-
-  /* initialize best members */
-  for (int i = 0; i < i_itermax * i_D; i++)
-    gd_bestmemit[i] = 0.0;
-
-  /* initialize best values */
-  for (int i = 0; i < i_itermax; i++)
-    gd_bestvalit[i] = 0.0;
-
-  /* initialize best population */
-  for (int i = 0; i < i_NP * i_D; i++)
-    gd_pop[i] = 0.0;
-
-  /* initialize stored populations */
-  if (i_nstorepop < 0)
-    i_nstorepop = 0;
-
-  for (int i = 0; i < (i_nstorepop * i_NP * i_D); i++)
-    gd_storepop[i] = 0.0;
-      
   /* if initial population provided, initialize with values */
   if (i_specinitialpop > 0) {
     k = 0;
@@ -303,8 +262,9 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
       }
       else /* or user-specified initial member */
         gta_popP[i][j] = initialpop[i][j];
-    } 
-    gta_popC[i] = evaluate(l_nfeval, gta_popP[i], par, fcall, rho);
+    }
+    memcpy(d_par, gta_popP[i], i_D * sizeof(double));
+    gta_popC[i] = evaluate(l_nfeval, par, fcall, rho);
 
     if (i == 0 || gta_popC[i] <= gt_bestC[0]) {
       gt_bestC[0] = gta_popC[i];
@@ -346,12 +306,12 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
       
       for (j = 0; j < i_D; j++) 
         t_bestitP[j] = gt_bestP[j];
-      t_bestitC = gt_bestC[0];
       
       i_iter++;
      
       /*----computer dithering factor -----------------*/
-      f_dither = f_weight + unif_rand() * (1.0 - f_weight);
+      if (i_strategy == 5)
+        f_dither = f_weight + unif_rand() * (1.0 - f_weight);
       
       /*---DE/current-to-p-best/1 -----------------------------------------------------*/
       if (i_strategy == 6) {
@@ -371,7 +331,7 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
 	  t_tmpP[j] = gta_oldP[i][j];
 	t_tmpC = gta_oldC[i];
 
-	permute(ia_urn2, URN_DEPTH, i_NP, i); /* Pick 4 random and distinct */
+	permute(ia_urn2, URN_DEPTH, i_NP, i, ia_urnTemp); /* Pick 4 random and distinct */
 
 	i_r1 = ia_urn2[1];  /* population members */
 	i_r2 = ia_urn2[2];
@@ -380,7 +340,8 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
 	
 	/*===Choice of strategy=======================================================*/
 	/*---classical strategy DE/rand/1/bin-----------------------------------------*/
-	if (i_strategy == 1) {
+	switch (i_strategy) {
+        case 1: {
 	  
 	  j = (int)(unif_rand() * i_D); /* random parameter */
 	  k = 0;
@@ -392,10 +353,10 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
 	    j = (j + 1) % i_D;
 	    k++;
 	  }while((unif_rand() < f_cross) && (k < i_D));
-
+        break;
 	}
 	/*---DE/local-to-best/1/bin---------------------------------------------------*/
-	else if (i_strategy == 2) {
+        case 2: {
 	 
 	  j = (int)(unif_rand() * i_D); /* random parameter */
 	  k = 0;
@@ -408,10 +369,10 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
 	    j = (j + 1) % i_D;
 	    k++;
 	  }while((unif_rand() < f_cross) && (k < i_D));
-
+        break;
 	}
 	/*---DE/best/1/bin with jitter------------------------------------------------*/
-	else if (i_strategy == 3) {
+        case 3: {
 	 	  
 	  j = (int)(unif_rand() * i_D); /* random parameter */
 	  k = 0;
@@ -424,10 +385,10 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
 	    j = (j + 1) % i_D;
 	    k++;
 	  }while((unif_rand() < f_cross) && (k < i_D));
-
+        break;
 	}
 	/*---DE/rand/1/bin with per-vector-dither-------------------------------------*/
-	else if (i_strategy == 4) {
+        case 4: {
 		  
 	  j = (int)(unif_rand() * i_D); /* random parameter */
 	  k = 0;
@@ -440,10 +401,10 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
 	    j = (j + 1) % i_D;
 	    k++;
 	  }while((unif_rand() < f_cross) && (k < i_D));
-
+        break;
 	}
 	/*---DE/rand/1/bin with per-generation-dither---------------------------------*/
-	else if (i_strategy == 5) {
+        case 5: {
 	  
 	  j = (int)(unif_rand() * i_D); /* random parameter */
 	  k = 0;
@@ -455,10 +416,10 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
 	    j = (j + 1) % i_D;
 	    k++;
 	  }while((unif_rand() < f_cross) && (k < i_D));
-       
+        break;
 	}
 	/*---DE/current-to-p-best/1 (JADE)--------------------------------------------*/
-	else if (i_strategy == 6) {
+        case 6: {
 
           /* select from [0, 1, 2, ..., (pNP-1)] */
           i_pbest = sortIndex[(int)(unif_rand() * p_NP)];
@@ -474,10 +435,10 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
 	    j = (j + 1) % i_D;
 	    k++;
 	  }while((unif_rand() < f_cross) && (k < i_D));
-
+        break;
         }
 	/*---variation to DE/rand/1/bin: either-or-algorithm--------------------------*/
-	else {
+        default: {
 	  
 	  j = (int)(unif_rand() * i_D); /* random parameter */
 	  k = 0;
@@ -490,8 +451,7 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
 	      j = (j + 1) % i_D;
 	      k++;
 	    }while((unif_rand() < f_cross) && (k < i_D));
-	  }
-	  else {
+	  } else {
 	    /* recombination with K = 0.5*(F+1) -. F-K-Rule */
 	    do {
 	      /* add fluctuation to random target */
@@ -504,7 +464,8 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
 	    }while((unif_rand() < f_cross) && (k < i_D));
 
 	  }
-	}/* end if (i_strategy ...*/
+        }
+        }/* end switch */
 	
 	/*----boundary constraints, bounce-back method was not enforcing bounds correctly*/
 	for (j = 0; j < i_D; j++) {
@@ -521,7 +482,8 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
 	/*------Trial mutation now in t_tmpP-----------------*/
 	/* Evaluate mutant in t_tmpP[]*/
 
-	t_tmpC = evaluate(l_nfeval, t_tmpP, par, fcall, rho); 
+        memcpy(d_par, t_tmpP, i_D * sizeof(double));
+        t_tmpC = evaluate(l_nfeval, par, fcall, rho);
 	
 	/* note that i_bs_flag means that we will choose the
 	 *best NP vectors from the old and new population later*/
@@ -607,7 +569,8 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
 	if(same && i_iter > 1)  {
 	  i_xav++;
 	  /* if re-evaluation of winner */
-	  tmp_best = evaluate(l_nfeval, gt_bestP, par, fcall, rho);
+          memcpy(d_par, gt_bestP, i_D * sizeof(double));
+          tmp_best = evaluate(l_nfeval, par, fcall, rho);
 	 
 	  /* possibly letting the winner be the average of all past generations */
 	  if(i_av_winner)
@@ -624,7 +587,6 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
       }
       for (j = 0; j < i_D; j++) 
 	t_bestitP[j] = gt_bestP[j];
-      t_bestitC = gt_bestC[0];
 
       if( trace > 0 ) {
         if( (i_iter % trace) == 0 ) {
@@ -652,7 +614,7 @@ void devol(double VTR, double f_weight, double f_cross, int i_bs_flag,
 
 }
 
-void permute(int ia_urn2[], int i_urn2_depth, int i_NP, int i_avoid)
+void permute(int ia_urn2[], int i_urn2_depth, int i_NP, int i_avoid, int ia_urn1[])
 /********************************************************************
  ** Function       : void permute(int ia_urn2[], int i_urn2_depth)
  ** Author         : Rainer Storn (w/bug fixes contributed by DEoptim users)
@@ -675,7 +637,6 @@ void permute(int ia_urn2[], int i_urn2_depth, int i_NP, int i_avoid)
  *********************************************************************/
 {
   int  i, k, i_urn1, i_urn2;
-  int ia_urn1[i_NP];
   
   GetRNGstate();
 
