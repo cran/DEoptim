@@ -1,15 +1,12 @@
-DEoptim.control <- function(VTR = -Inf, strategy = 2, bs = FALSE, NP = 50,
+DEoptim.control <- function(VTR = -Inf, strategy = 2, bs = FALSE, NP = NA,
                             itermax = 200, CR = 0.5, F = 0.8, trace = TRUE,
                             initialpop = NULL, storepopfrom = itermax + 1,
                             storepopfreq = 1, checkWinner = FALSE,
-                            avWinner = TRUE, p = 0.2, c = 0.05) {
+                            avWinner = TRUE, p = 0.2, c = 0.05,
+                            reltol, steptol) {
   if (itermax <= 0) {
     warning("'itermax' <= 0; set to default value 200\n", immediate. = TRUE)
     itermax <- 200
-  }
-  if (NP < 4) {
-    warning("'NP' < 4; set to default value 50\n", immediate. = TRUE)
-    NP <- 50
   }
   if (F < 0 | F > 2) {
     warning("'F' not in [0,2]; set to default value 0.8\n", immediate. = TRUE)
@@ -46,10 +43,19 @@ DEoptim.control <- function(VTR = -Inf, strategy = 2, bs = FALSE, NP = 50,
     c <- 0.05
   }
 
+  if (missing(reltol)) {
+    reltol <- sqrt(.Machine$double.eps)
+  }
+
+  if (missing(steptol)) {
+    steptol <- itermax
+  }
+
   list(VTR = VTR, strategy = strategy, NP = NP, itermax = itermax, CR
        = CR, F = F, bs = bs, trace = trace, initialpop = initialpop,
        storepopfrom = storepopfrom, storepopfreq = storepopfreq,
-       checkWinner = checkWinner, avWinner = avWinner, p = p, c = c)
+       checkWinner = checkWinner, avWinner = avWinner, p = p, c = c,
+       reltol = reltol, steptol = steptol)
 }
 
 DEoptim <- function(fn, lower, upper, control = DEoptim.control(), ...) {
@@ -78,9 +84,12 @@ DEoptim <- function(fn, lower, upper, control = DEoptim.control(), ...) {
 
   ctrl <- do.call(DEoptim.control, as.list(control))
   ctrl$npar <- length(lower)
+   if(is.na(ctrl$NP))
+     ctrl$NP <- 10*length(lower)
   if (ctrl$NP < 4) {
-    warning("'NP' < 4; set to default value 50\n", immediate. = TRUE)
-    ctrl$NP <- 50
+    warning("'NP' < 4; set to default value 10*length(lower)\n",
+            immediate. = TRUE)
+    ctrl$NP <- 10*length(lower)
   }
   if (ctrl$NP < 10*length(lower)) 
     warning("For many problems it is best to set 'NP' (in 'control') to be at least ten times the length of the parameter vector. \n", immediate. = TRUE)
@@ -118,34 +127,36 @@ DEoptim <- function(fn, lower, upper, control = DEoptim.control(), ...) {
   }
 
   ## optim
-  bestmem <- as.numeric(outC$bestmem)
-  names(bestmem) <- nam
-  bestval <- as.numeric(outC$bestval)
-  nfeval <- as.numeric(outC$nfeval)
-  iter <- as.numeric(outC$iter)
+#  bestmem <- as.numeric(outC$bestmem)
+#  names(bestmem) <- nam
+  names(outC$bestmem) <- nam
+#  bestval <- as.numeric(outC$bestval)
+#  nfeval <- as.numeric(outC$nfeval)
+#  iter <- as.numeric(outC$iter)
 
   ## member
   names(lower) <- names(upper) <- nam
-  bestmemit <- matrix(outC$bestmemit, nrow = iter, 
-                      ncol = ctrl$npar, byrow = TRUE)
+  bestmemit <- matrix(outC$bestmemit[1:(outC$iter * ctrl$npar)],
+                      nrow = outC$iter, ncol = ctrl$npar, byrow = TRUE)
 
-  dimnames(bestmemit) <- list(1:iter, nam)
-  bestvalit <- as.numeric(outC$bestvalit[1:iter])
-  pop <- matrix(outC$pop, nrow = ctrl$NP, ncol = ctrl$npar,
-                byrow = TRUE)
+  dimnames(bestmemit) <- list(1:outC$iter, nam)
+#  dimnames(outC$bestmemit) <- list(1:outC$iter, nam)
+#  bestvalit <- as.numeric(outC$bestvalit[1:iter])
+#  pop <- matrix(outC$pop, nrow = ctrl$NP, ncol = ctrl$npar,
+#                byrow = TRUE)
   storepop <- as.list(storepop)
 
   outR <- list(optim = list(
-              bestmem = bestmem,
-              bestval = bestval,
-              nfeval = nfeval,
-              iter = iter),
+              bestmem = outC$bestmem,
+              bestval = outC$bestval,
+              nfeval = outC$nfeval,
+              iter = outC$iter),
             member = list(
               lower = lower,
               upper = upper,
               bestmemit = bestmemit,
-              bestvalit = bestvalit,
-              pop = pop,
+              bestvalit = outC$bestvalit,
+              pop = t(outC$pop),
               storepop = storepop))
 
   attr(outR, "class") <- "DEoptim"

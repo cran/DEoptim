@@ -7,11 +7,11 @@
   in \code{DEoptim}.
 }
 \usage{
-DEoptim.control(VTR = -Inf, strategy = 2, bs = FALSE, NP = 50,
+DEoptim.control(VTR = -Inf, strategy = 2, bs = FALSE, NP = NA,
    itermax = 200, CR = 0.5, F = 0.8, trace = TRUE,
    initialpop = NULL, storepopfrom = itermax + 1,
    storepopfreq = 1, checkWinner = FALSE, avWinner = TRUE, p = 0.2,
-   c = 0.05)
+   c = 0.05, reltol, steptol)
 }
 \arguments{
    \item{VTR}{the value to be reached. The optimization process
@@ -37,17 +37,22 @@ DEoptim.control(VTR = -Inf, strategy = 2, bs = FALSE, NP = 50,
       values, and the best \code{NP} vectors will proceed into the next
       generation (best of parent and child selection). Default is
     \code{FALSE}.}
-    \item{NP}{number of population members. Defaults to \code{50}.  For
+    \item{NP}{number of population members. Defaults to \code{NA}; if
+      the user does not change the value of \code{NP} from \code{NA} or
+      specifies a value less than 4 it
+      is reset when \code{DEoptim} is called as \code{10*length(lower)}. For
       many problems it is best to set
       \code{NP} to be at least 10 times the length
       of the parameter vector.  }
     \item{itermax}{the maximum iteration (population generation) allowed.
       Default is \code{200}.}
     \item{CR}{crossover probability from interval [0,1]. Default
-      to \code{0.9}.}
+      to \code{0.5}.}
     \item{F}{step-size from interval [0,2]. Default to \code{0.8}.}
-    \item{trace}{Printing of progress occurs? Default to \code{TRUE}. If
-      numeric, progress will be printed every \code{trace} iterations.}
+    \item{trace}{Positive integer or logical value indicating whether 
+  printing of progress occurs at each iteration. The default value is
+  \code{TRUE}.  If a positive integer is specified, printing occurs every
+  \code{trace} iterations.  }
     \item{initialpop}{an initial population used as a starting
       population in the optimization procedure. May be useful to speed up
       the convergence. Default to \code{NULL}.  If given, each member of
@@ -81,6 +86,11 @@ DEoptim.control(VTR = -Inf, strategy = 2, bs = FALSE, NP = 50,
  \item{c}{when \code{strategy = 6}, \code{c} controls the speed of the
    crossover adaptation. Higher values of \code{c} give more weight to the
    current successful mutations. \code{c} must be defined in (0,1].}
+ \item{reltol}{relative convergence tolerance.  The algorithm stops if
+   it is unable to reduce the value by a factor of \code{reltol * (val +
+   reltol)} after \code{steptol} steps. Defaults to
+   \code{sqrt(.Machine$double.eps)}, typically about \code{1e-8}.}
+ \item{steptol}{see \code{reltol}. Defaults to \code{itermax}.}
  }
 \value{
   The default value of \code{control} is the return value of 
@@ -129,6 +139,10 @@ DEoptim.control(VTR = -Inf, strategy = 2, bs = FALSE, NP = 50,
      The strategy described for \code{4} is used, but \eqn{dither}
      is only determined once per-generation. 
      
+     \item \code{strategy = 6}: DE / current-to-p-best / 1.\cr
+     The top \eqn{(100*p)} percent best solutions are used in the mutation,
+     where \eqn{p} is defined in \eqn{(0,1]}.
+     
      \item any value not above: variation to DE / rand / 1 / bin: either-or algorithm.\cr
      In the case that \code{rand} < 0.5, the classical strategy \code{strategy = 1} is used. 
      Otherwise, the expression
@@ -142,7 +156,7 @@ DEoptim.control(VTR = -Inf, strategy = 2, bs = FALSE, NP = 50,
 }
 \note{
   Further details and examples of the \R package \pkg{DEoptim} can be found
-  in Mullen et al. (forthcoming) and Ardia et al. (2010a, 2010b) or look at the 
+  in Mullen et al. (2011) and Ardia et al. (2010a, 2010b) or look at the 
   package's vignette by typing \code{vignette("DEoptim")}.
 
   Please cite the package in publications. Use \code{citation("DEoptim")}.
@@ -152,18 +166,18 @@ DEoptim.control(VTR = -Inf, strategy = 2, bs = FALSE, NP = 50,
 }
 \references{
   Ardia, D., Boudt, K., Carl, P., Mullen, K.M., Peterson, B.G. (2010a)
-  Differential Evolution (\pkg{DEoptim}) for Non-Convex Portfolio Optimization.
-  URL \url{http://ssrn.com/abstract=1584905}
+  Differential Evolution (\pkg{DEoptim}) for Non-Convex Portfolio
+  Optimization. URL \url{http://ssrn.com/abstract=1584905}.
 
   Ardia, D., Ospina Arango, J.D., Giraldo Gomez, N.D. (2010b)
-  Jump-Diffusion Calibration using Differential Evolution
-  URL \url{http://ssrn.com/abstract=1689829}
+  Jump-Diffusion Calibration using Differential Evolution.
+  URL \url{http://ssrn.com/abstract=1689829}.
 
-  Mullen, K.M., Ardia, D., Gil, D.L, Windover, D., Cline, J. (forthcoming)
-  \pkg{DEoptim}: An \R Package for Global Optimization by Differential Evolution.
-  \emph{Journal of Statistical Software}, in press.
-  URL \url{http://ssrn.com/abstract=1526466}
-
+  Mullen, K.M, Ardia, D., Gil, D., Windover, D., Cline,
+  J. (2011). \pkg{DEoptim:} An R Package for Global Optimization by
+  Differential Evolution. \emph{Journal of Statistical Software}, 40(6), 1-26.
+  URL \url{http://www.jstatsoft.org/v40/i06/}.
+  
   Price, K.V., Storn, R.M., Lampinen J.A. (2006)
   \emph{Differential Evolution - A Practical Approach to Global Optimization}.
   Berlin Heidelberg: Springer-Verlag. ISBN 3540209506.
