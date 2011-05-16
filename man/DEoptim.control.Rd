@@ -11,7 +11,7 @@ DEoptim.control(VTR = -Inf, strategy = 2, bs = FALSE, NP = NA,
    itermax = 200, CR = 0.5, F = 0.8, trace = TRUE,
    initialpop = NULL, storepopfrom = itermax + 1,
    storepopfreq = 1, checkWinner = FALSE, avWinner = TRUE, p = 0.2,
-   c = 0.05, reltol, steptol)
+   c = 0, reltol, steptol)
 }
 \arguments{
    \item{VTR}{the value to be reached. The optimization process
@@ -83,11 +83,11 @@ DEoptim.control(VTR = -Inf, strategy = 2, bs = FALSE, NP = NA,
    The default value is \code{TRUE}.}
  \item{p}{when \code{strategy = 6}, the top (100 * p)\% best 
    solutions are used in the mutation. \code{p} must be defined in (0,1].}
- \item{c}{when \code{strategy = 6}, \code{c} controls the speed of the
+ \item{c}{\code{c} controls the speed of the
    crossover adaptation. Higher values of \code{c} give more weight to the
    current successful mutations. \code{c} must be defined in (0,1].}
  \item{reltol}{relative convergence tolerance.  The algorithm stops if
-   it is unable to reduce the value by a factor of \code{reltol * (val +
+   it is unable to reduce the value by a factor of \code{reltol * (abs(val) +
    reltol)} after \code{steptol} steps. Defaults to
    \code{sqrt(.Machine$double.eps)}, typically about \code{1e-8}.}
  \item{steptol}{see \code{reltol}. Defaults to \code{itermax}.}
@@ -153,6 +153,27 @@ DEoptim.control(VTR = -Inf, strategy = 2, bs = FALSE, NP = NA,
      }
      is used. 
   }
+  
+  Several conditions can cause the optimization process to stop:
+  \itemize{
+    \item{if the best parameter vector (\code{bestmem}) produces a value
+      less than or equal to \code{VTR} (i.e. \code{fn(bestmem) <= VTR}), or}
+    \item{if the maximum number of iterations is reached (\code{itermax}), or}
+    \item{if a number (\code{steptol}) of consecutive iterations are unable
+      to reduce the best function value by a certain amount (\code{reltol *
+      (abs(val) + reltol)}). \code{100*reltol} is approximately the percent
+      change of the objective value required to consider the parameter set
+      an improvement over the current best member.}
+  }
+
+  Zhang and Sanderson (2009) define several extensions to the DE algorithm, 
+  including strategy 6, DE/current-to-p-best/1. They also define a self-adaptive 
+  mechanism for the other control parameters.  This self-adaptation will speed 
+  convergence on many problems, and is defined by the control parameter \code{c}.
+  If \code{c} is non-zero, crossover and mutation will be adapted by the algorithm.  
+  Values in the range of \code{c=.05} to \code{c=.5} appear to work best for most 
+  problems, though the adaptive algorithm is robust to a wide range of \code{c}.
+    
 }
 \note{
   Further details and examples of the \R package \pkg{DEoptim} can be found
@@ -181,6 +202,10 @@ DEoptim.control(VTR = -Inf, strategy = 2, bs = FALSE, NP = NA,
   Price, K.V., Storn, R.M., Lampinen J.A. (2006)
   \emph{Differential Evolution - A Practical Approach to Global Optimization}.
   Berlin Heidelberg: Springer-Verlag. ISBN 3540209506.
+  
+  Zhang, J. and Sanderson, A. (2009) 
+  \emph{Adaptive Differential Evolution}
+  Springer-Verlag. ISBN 978-3-642-01526-7
 }
 \author{
   David Ardia, Katharine Mullen \email{katharine.mullen@nist.gov}, 
