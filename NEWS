@@ -1,6 +1,13 @@
+Changes in version 2.1-2
+  o Modified CITATION file and Rd files.
+  o Joshua Ulrich fixed the crash caused by a stack overflow when optimizing
+    many parameters.  Thanks to Suraj Gupta for pointing out the problem. 
+
 Changes in version 2.1-1
   o Added portfolio optimization vignette.
-  o Bug with reltol / steptol stopping criteria fixed. 
+  o Bug with reltol / steptol stopping criteria fixed.
+  o Changed JADE to be 'on' when c > 0 for *any* strategy and set c=0
+    as default in DEoptim.control (JADE is 'off').
 
 Changes in version 2.1-0
   o Added documentation of strategy six.
