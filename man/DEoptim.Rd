@@ -6,23 +6,27 @@
   Performs evolutionary global optimization via the Differential Evolution algorithm.
 }
 \usage{
-DEoptim(fn, lower, upper, control = DEoptim.control(), ...)
+DEoptim(fn, lower, upper, control = DEoptim.control(), ..., fnMap=NULL)
 }
 \arguments{
   \item{fn}{the function to be optimized (minimized). The function should have as its first 
     argument the vector of real-valued parameters to optimize, and return a scalar real result. \code{NA} 
     and \code{NaN} values are not allowed.}
-  \item{lower, upper}{two vectors specifying scalar real lower and upper bounds on each parameter to be optimized, so that the i-th element 
-    of \code{lower} and \code{upper} applied to the i-th parameter. The implementation searches
+  \item{lower, upper}{two vectors specifying scalar real lower and upper
+    bounds on each parameter to be optimized, so that the i-th element 
+    of \code{lower} and \code{upper} applies to the i-th parameter. The implementation searches
     between \code{lower} and \code{upper} for the global optimum (minimum) of \code{fn}.}
   \item{control}{a list of control parameters; see \code{\link{DEoptim.control}}.}
+  \item{fnMap}{an optional function that will be run after each population is
+    created, but before the population is passed to the objective function. This
+    allows the user to impose integer/cardinality constriants.}
   \item{...}{further arguments to be passed to \code{fn}.}
 }
 \details{
   \code{DEoptim} performs optimization (minimization) of \code{fn}. 
 
   The \code{control} argument is a list; see the help file for
-  \code{\link{DEoptim.control}} for details.
+  \code{\link{DEoptim.control}} for details.  
 
   The \R implementation of Differential Evolution (DE), \pkg{DEoptim}, was first published on the Comprehensive \R Archive
   Network (CRAN) in 2005 by David Ardia. Early versions were written in 
@@ -36,20 +40,31 @@ DEoptim(fn, lower, upper, control = DEoptim.control(), ...)
   J.A, Springer-Verlag, 2006, and found on-line at
   \url{http://www.icsi.berkeley.edu/~storn/}. Since version 2.0-3 the C 
   implementation dynamically allocates the memory required to store the population, removing limitations on the 
-  number of members in the population and length of the parameter vectors that may be optimized. 
-  Since becoming publicly available, the package \pkg{DEoptim} has been used by several authors to solve optimization 
-  problems arising in diverse domains; see Mullen et al. (2011) for a review.
+  number of members in the population and length of the parameter
+  vectors that may be optimized. 
+  Since version 2.2-0, the package allows for parallel operation, 
+  so that the evaluations of the objective function may be 
+  performed using all available cores.  This is accomplished using either
+  the built-in \pkg{parallel} package or the \pkg{foreach} package.  If
+  parallel operation is desired, the user should set \code{parallelType}
+  and make sure that the arguments and packages needed by the objective
+  function are available; see \code{\link{DEoptim.control}}, the example
+  below and examples in the sandbox directory for details.  
+  
+  Since becoming publicly available, the package \pkg{DEoptim} has been
+  used by several authors to solve optimization problems arising in
+  diverse domains; see Mullen et al. (2011) for a review.
   
   To perform a maximization (instead of minimization) of a given
   function, simply define a new function which is the opposite of the
   function to maximize and apply \code{DEoptim} to it.
   
-  To integrate additional constraints (than box constraints) on the parameters \code{x} of
+  To integrate additional constraints (other than box constraints) on the parameters \code{x} of
   \code{fn(x)}, for instance \code{x[1] + x[2]^2 < 2}, integrate the
   constraint within the function to optimize, for instance: 
   \preformatted{
     fn <- function(x)\{
-      if (x[1] + x[2]^2 < 2)\{
+      if (x[1] + x[2]^2 >= 2)\{
         r <- Inf
       else\{
         ...
@@ -68,18 +83,20 @@ DEoptim(fn, lower, upper, control = DEoptim.control(), ...)
   (for instance, set \code{NA} to \code{Inf} in your objective function).
 
   It is important to emphasize that the result of \code{DEoptim} is a random variable, 
-  i.e., different results will obtain when the algorithm is run repeatedly with the same 
+  i.e., different results may be obtained when the algorithm is run repeatedly with the same 
   settings. Hence, the user should set the random seed if they want to reproduce the results, e.g., by 
   setting \code{set.seed(1234)} before the call of \code{DEoptim}.
 
   \code{DEoptim} relies on repeated evaluation of the objective function
   in order to move the population toward a global minimum. Users
   interested in making \code{DEoptim} run as fast as possible should
+  consider using the package in parallel mode (so that all CPU's
+  available are used), and also 
   ensure that evaluation of the objective function is as efficient as
-  possible. Using pure \R code, this may often be accomplished
-  using vectorization. Writing parts of the objective function in a
-  lower-level language like C or Fortran may also increase speed.
-
+  possible (e.g. by using vectorization in pure \R code, or
+  writing parts of the objective function in a
+  lower-level language like C or Fortran).
+  
   Further details and examples of the \R package \pkg{DEoptim} can be found
   in Mullen et al. (2011) and Ardia et al. (2011a, 2011b) or look at the 
   package's vignette by typing \code{vignette("DEoptim")}. Also, an illustration of
@@ -111,10 +128,12 @@ DEoptim(fn, lower, upper, control = DEoptim.control(), ...)
   }
 
   Members of the class \code{DEoptim} have a \code{plot} method that
-  accepts the argument \code{plot.type}. \code{plot.type = "bestmemit"} results
+  accepts the argument \code{plot.type}.\cr
+  \code{plot.type = "bestmemit"} results
   in a plot of the parameter values that represent the lowest value of the objective function
   each generation. \code{plot.type = "bestvalit"} plots the best value of
-  the objective function each generation. Finally, \code{plot.type = "storepop"} results in a plot of
+  the objective function each generation. Finally,
+  \code{plot.type = "storepop"} results in a plot of
   stored populations (which are only available if these have been saved by
   setting the \code{control} argument of \code{DEoptim} appropriately). Storing intermediate populations 
   allows us to examine the progress of the optimization in detail.   
@@ -150,8 +169,8 @@ DEoptim(fn, lower, upper, control = DEoptim.control(), ...)
 
   \deqn{v_i \doteq x_{r_0} + \mathit{F} \cdot (x_{r_1} - x_{r_2})}{v_i := x_{r_0} + F * (x_{r_1} - x_{r_2})}  
 
-  where \eqn{\mathit{F}}{F} is a positive scale factor, effective values for which are
-  typically less than one. After the first mutation operation, mutation is
+  where \eqn{\mathit{F}}{F} is the differential weighting factor, effective values for which are
+  typically between 0 and 1. After the first mutation operation, mutation is
   continued until \eqn{d} mutations have been made, with a crossover probability 
   \eqn{\mathit{CR} \in [0,1]}{CR in [0,1]}.
   The crossover probability \eqn{\mathit{CR}}{CR} controls the fraction of the parameter
@@ -171,7 +190,7 @@ DEoptim(fn, lower, upper, control = DEoptim.control(), ...)
 
   As a general advice regarding the choice of \eqn{\mathit{NP}}{NP}, \eqn{\mathit{F}}{F} and \eqn{\mathit{CR}}{CR}, 
   Storn et al. (2006) state the following: Set the number
-  of parents \eqn{\mathit{NP}}{NP} to 10 times the number of parameters, select weighting factor 
+  of parents \eqn{\mathit{NP}}{NP} to 10 times the number of parameters, select differential weighting factor 
   \eqn{\mathit{F} = 0.8}{F = 0.8} and crossover constant \eqn{\mathit{CR} = 0.9}{CR = 0.9}. Make sure that you initialize your parameter vectors
   by exploiting their full numerical range, i.e., if a parameter is allowed to exhibit
   values in the range [-100, 100] it is a good idea to pick the initial values from this
@@ -222,7 +241,7 @@ DEoptim(fn, lower, upper, control = DEoptim.control(), ...)
   \emph{Journal of Global Optimization}, 11:4, 341--359.  
 }
 \author{
-  David Ardia, Katharine Mullen \email{katharine.mullen@nist.gov}, 
+  David Ardia, Katharine Mullen \email{mullenkate@gmail.com}, 
   Brian Peterson and Joshua Ulrich.
 }
 \seealso{
@@ -279,6 +298,38 @@ DEoptim(fn, lower, upper, control = DEoptim.control(), ...)
 
   DEoptim(Wild, lower = -50, upper = 50,
           control = DEoptim.control(NP = 50))
+ 
+  ## The below examples shows how the call to DEoptim can be
+  ## parallelized; see the sandbox directory in the source
+  ## code for additional examples.
+  ## Note that if your objective function requires packages to be
+  ## loaded or has arguments supplied via \code{...}, these should be
+  ## specified using the \code{packages} and \code{parVar} arguments
+  ## in control.  
+  \dontrun{ 
+
+  Genrose <- function(x) {
+     ## One generalization of the Rosenbrock banana valley function (n parameters)
+     n <- length(x)
+     ## make it take some time ... 
+     Sys.sleep(.001) 
+     1.0 + sum (100 * (x[-n]^2 - x[-1])^2 + (x[-1] - 1)^2)
+  }
+
+  # get some run-time on simple problems
+  maxIt <- 250                     
+  n <- 5
+
+  oneCore <- system.time( DEoptim(fn=Genrose, lower=rep(-25, n), upper=rep(25, n),
+                   control=list(NP=10*n, itermax=maxIt)))
+
+  withParallel <-  system.time( DEoptim(fn=Genrose, lower=rep(-25, n), upper=rep(25, n),
+                   control=list(NP=10*n, itermax=maxIt, parallelType=1)))
+
+  ## Compare timings 
+  (oneCore)
+  (withParallel)
+ }
 }
 \keyword{nonlinear}
 \keyword{optimize}

@@ -8,10 +8,10 @@
 }
 \usage{
 DEoptim.control(VTR = -Inf, strategy = 2, bs = FALSE, NP = NA,
-   itermax = 200, CR = 0.5, F = 0.8, trace = TRUE,
-   initialpop = NULL, storepopfrom = itermax + 1,
-   storepopfreq = 1, checkWinner = FALSE, avWinner = TRUE, p = 0.2,
-   c = 0, reltol, steptol)
+  itermax = 200, CR = 0.5, F = 0.8, trace = TRUE, initialpop = NULL,
+  storepopfrom = itermax + 1, storepopfreq = 1, p = 0.2, c = 0, reltol,
+  steptol, parallelType = 0, packages = c(), parVar = c(),
+  foreachArgs = list())
 }
 \arguments{
    \item{VTR}{the value to be reached. The optimization process
@@ -48,7 +48,8 @@ DEoptim.control(VTR = -Inf, strategy = 2, bs = FALSE, NP = NA,
       Default is \code{200}.}
     \item{CR}{crossover probability from interval [0,1]. Default
       to \code{0.5}.}
-    \item{F}{step-size from interval [0,2]. Default to \code{0.8}.}
+    \item{F}{differential weighting factor from interval [0,2]. Default
+      to \code{0.8}.}
     \item{trace}{Positive integer or logical value indicating whether 
   printing of progress occurs at each iteration. The default value is
   \code{TRUE}.  If a positive integer is specified, printing occurs every
@@ -65,22 +66,6 @@ DEoptim.control(VTR = -Inf, strategy = 2, bs = FALSE, NP = NA,
     \item{storepopfreq}{the frequency with which populations are stored.
       Default to \code{1}, i.e., every intermediate population
       is stored.}
-    \item{checkWinner}{logical value indicating whether to re-evaluate
-      the objective function using the winning parameter vector if this
-      vector remains the same between
-    generations. This may be useful for the optimization of a noisy
-    objective function. If \code{checkWinner = TRUE} and \code{avWinner = FALSE}
-   then the  value associated with re-evaluation of
-   the objective function is used in the next generation.
-   Default to \code{FALSE}. }
- \item{avWinner}{logical value. If \code{checkWinner = TRUE} and
-   \code{avWinner = TRUE} then the objective
-   function value associated with the winning member represents the
-   average of all evaluations of the objective function over the course
-   of the `winning streak' of the best population member. This option
-   may be useful for optimization of noisy objective functions, and is
-   interpreted only if \code{checkWinner = TRUE}.
-   The default value is \code{TRUE}.}
  \item{p}{when \code{strategy = 6}, the top (100 * p)\% best 
    solutions are used in the mutation. \code{p} must be defined in (0,1].}
  \item{c}{\code{c} controls the speed of the
@@ -91,10 +76,36 @@ DEoptim.control(VTR = -Inf, strategy = 2, bs = FALSE, NP = NA,
    reltol)} after \code{steptol} steps. Defaults to
    \code{sqrt(.Machine$double.eps)}, typically about \code{1e-8}.}
  \item{steptol}{see \code{reltol}. Defaults to \code{itermax}.}
+ \item{parallelType}{Defines the type of parallelization to employ, if
+   any.
+    \code{0}: The default, this uses \code{DEoptim} one only one core.
+    \code{1}: This uses all available cores, via the \pkg{parallel}
+    package, to run \code{DEoptim}.  If \code{parallelType=1}, then the
+    \code{packages} argument and the \code{parVar} argument need to
+    specify the packages required by the objective function and the
+    variables required in the environment, respectively. 
+    \code{2}: This uses the \pkg{foreach} package for parallelism; see
+    the \code{sandbox} directory in the source code for examples.  If
+    \code{parallelType=1}, then the \code{foreachArgs} argument can pass
+    the options to be called with \code{foreach}.  
+  }
+  \item{packages}{Used if  \code{parallelType=1}; a list of
+    package names (as strings) that need to be loaded for use by the objective
+  function. }
+\item{parVar}{Used if  \code{parallelType=1};  a list of variable names
+  (as strings) that need to exist in the environment for use by the
+  objective function or are used as arguments by the objective
+  function. }  
+  \item{foreachArgs}{A list of named arguments for the \code{foreach}
+    function from the
+    package \pkg{foreach}.  The arguments \code{i}, \code{.combine} and
+    \code{.export} are not possible to set here; they are set
+    internally. }
  }
 \value{
   The default value of \code{control} is the return value of 
-  \code{DEoptim.control()}, which is  a list (and a member of the \code{S3} class  
+  \code{DEoptim.control()}, which is  a list (and a member of the
+  \code{S3} class  
   \code{DEoptim.control}) with the above elements.
 }
 \details{
@@ -212,7 +223,7 @@ DEoptim.control(VTR = -Inf, strategy = 2, bs = FALSE, NP = NA,
   Springer-Verlag. ISBN 978-3-642-01526-7
 }
 \author{
-  David Ardia, Katharine Mullen \email{katharine.mullen@nist.gov}, 
+  David Ardia, Katharine Mullen \email{mullenkate@gmail.com}, 
   Brian Peterson and Joshua Ulrich.
 }
 \examples{
@@ -222,6 +233,7 @@ DEoptim.control(NP = 20)
 ## set the population size, the number of iterations and don't
 ## display the iterations during optimization
 DEoptim.control(NP = 20, itermax = 100, trace = FALSE)
+   
 }
 \keyword{nonlinear}
 \keyword{optimize}
