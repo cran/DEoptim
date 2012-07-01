@@ -25,34 +25,30 @@ SEXP popEvaluate(long *l_nfeval, SEXP parMat, SEXP fcall, SEXP env)
 {
    SEXP sexp_fvec, fn;
    double *d_result;
-   int *i_result;
+   int P = 0;
 
-   PROTECT(fn = lang3(fcall, parMat, R_DotsSymbol));
+   PROTECT(fn = lang3(fcall, parMat, R_DotsSymbol)); P++;
       (*l_nfeval)++;  /* increment function evaluation count */
 
-   PROTECT(sexp_fvec = eval(fn, env));
+   PROTECT(sexp_fvec = eval(fn, env)); P++;
    int nr = nrows(sexp_fvec);
    if(nr != nrows(parMat))
      error("objective function result has different length than parameter matrix");
    switch(TYPEOF(sexp_fvec)) {
      case INTSXP:
-       i_result = INTEGER(sexp_fvec);
-       for(int i=0; i < nr; i++) {
-         if(ISNAN(i_result[i]))
-           error("NaN value of objective function! \nPerhaps adjust the bounds.");
-       }
+       PROTECT(sexp_fvec = coerceVector(sexp_fvec, REALSXP)); P++;
        break;
      case REALSXP:
-       d_result = REAL(sexp_fvec);
-       for(int i=0; i < nr; i++) {
-         if(ISNAN(d_result[i]))
-           error("NaN value of objective function! \nPerhaps adjust the bounds.");
-       }
        break;
      default:
        error("unsupported objective function return value");
        break;
    }
-   UNPROTECT(2);
+   d_result = REAL(sexp_fvec);
+   for(int i=0; i < nr; i++) {
+     if(ISNAN(d_result[i]))
+       error("NaN value of objective function! \nPerhaps adjust the bounds.");
+   }
+   UNPROTECT(P);
    return(sexp_fvec);
 }
