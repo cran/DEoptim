@@ -1,4 +1,4 @@
-/***************************************************************
+ /***************************************************************
 
 Implementation of DE based loosely on DE-Engine v4.0, Rainer Storn, 2004
 by Katharine Mullen, 2009
@@ -107,6 +107,9 @@ SEXP DEoptimC(SEXP lower, SEXP upper, SEXP fn, SEXP control, SEXP rho, SEXP fnMa
   double *gd_bestmemit = REAL(sexp_bestmemit);
   double *gd_bestvalit = REAL(sexp_bestvalit);
 
+  /* ensure lower and upper are double */
+  if(TYPEOF(lower) != REALSXP) {PROTECT(lower = coerceVector(lower, REALSXP)); P++;}
+  if(TYPEOF(upper) != REALSXP) {PROTECT(upper = coerceVector(upper, REALSXP)); P++;}
   double *d_lower      = REAL(lower);
   double *d_upper      = REAL(upper);
 
@@ -274,8 +277,8 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
   }
 
   /*---assign pointers to current ("old") population---*/
-  memcpy(REAL(sexp_gta_oldP), REAL(sexp_gta_popP), i_NP * i_D * sizeof(double));
-  memcpy(REAL(sexp_gta_oldC), REAL(sexp_gta_popC), i_NP * sizeof(double));
+  memmove(REAL(sexp_gta_oldP), REAL(sexp_gta_popP), i_NP * i_D * sizeof(double));
+  memmove(REAL(sexp_gta_oldC), REAL(sexp_gta_popC), i_NP * sizeof(double));
   UNPROTECT(1);  // sexp_gta_popC
 
   /*------Iteration loop--------------------------------------------*/
@@ -420,7 +423,6 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
 
     /*------Trial mutation now in t_tmpP-----------------*/
     /* evaluate mutated population */
-    if(i_iter > 1) UNPROTECT(1);  // previous iteration's sexp_t_tmpC
     PROTECT(sexp_map_pop = popEvaluate(l_nfeval, sexp_t_tmpP,  fnMap, rho, 0));
     memmove(REAL(sexp_t_tmpP), REAL(sexp_map_pop), i_NP * i_D * sizeof(double)); // valgrind reports memory overlap here
     UNPROTECT(1);  // sexp_map_pop
@@ -455,6 +457,7 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
 
       }
     } /* End mutation loop through ensemble */
+    UNPROTECT(1);  // sexp_t_tmpC
 
     if (d_c > 0) { /* calculate new meanCR and meanF */
       meanCR = (1-d_c)*meanCR + d_c*goodCR;
@@ -530,9 +533,11 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
     /*if( i_iter % 10000 == 999 ) R_CheckUserInterrupt();*/
 
     /* check relative tolerance (as in src/main/optim.c) */
-    if( fabs(t_bestC - gd_bestvalit[i_iter-1]) <
-        (d_reltol * (gd_bestvalit[i_iter-1] + d_reltol)) ) {
-      i_iter_tol++;
+
+
+    if( gd_bestvalit[i_iter-1] -  t_bestC <
+        (d_reltol * (fabs(gd_bestvalit[i_iter-1]) + d_reltol))) {
+	i_iter_tol++;
     } else {
       i_iter_tol = 0;
     }
@@ -552,7 +557,7 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
   *gt_bestC = t_bestC;
 
   PutRNGstate();
-  UNPROTECT(P+1); // +1 is for last iteration's sexp_t_tmpC
+  UNPROTECT(P);
 
 }
 
