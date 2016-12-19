@@ -423,6 +423,7 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
 
     /*------Trial mutation now in t_tmpP-----------------*/
     /* evaluate mutated population */
+    if(i_iter > 1) UNPROTECT(1);  // previous iteration's sexp_t_tmpC
     PROTECT(sexp_map_pop = popEvaluate(l_nfeval, sexp_t_tmpP,  fnMap, rho, 0));
     memmove(REAL(sexp_t_tmpP), REAL(sexp_map_pop), i_NP * i_D * sizeof(double)); // valgrind reports memory overlap here
     UNPROTECT(1);  // sexp_map_pop
@@ -457,8 +458,7 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
 
       }
     } /* End mutation loop through ensemble */
-    UNPROTECT(1);  // sexp_t_tmpC
-
+   
     if (d_c > 0) { /* calculate new meanCR and meanF */
       meanCR = (1-d_c)*meanCR + d_c*goodCR;
       meanF = (1-d_c)*meanF + d_c*goodF2/goodF;
@@ -557,7 +557,7 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
   *gt_bestC = t_bestC;
 
   PutRNGstate();
-  UNPROTECT(P);
+  UNPROTECT(P+1);
 
 }
 

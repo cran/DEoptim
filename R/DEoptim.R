@@ -2,7 +2,7 @@ DEoptim.control <- function(VTR = -Inf, strategy = 2, bs = FALSE, NP = NA,
                             itermax = 200, CR = 0.5, F = 0.8, trace = TRUE,
                             initialpop = NULL, storepopfrom = itermax + 1,
                             storepopfreq = 1,  p = 0.2, c = 0,
-                            reltol, steptol, parallelType = 0,
+                            reltol, steptol, parallelType = 0, cluster = NULL,
                             packages = c(), parVar = c(), 
                             foreachArgs = list() ) {
   if (itermax <= 0) {
@@ -68,122 +68,124 @@ DEoptim.control <- function(VTR = -Inf, strategy = 2, bs = FALSE, NP = NA,
        = CR, F = F, bs = bs, trace = trace, initialpop = initialpop,
        storepopfrom = storepopfrom, storepopfreq = storepopfreq, p =
        p, c = c, reltol = reltol, steptol = steptol, parallelType =
-       parallelType, packages = packages, parVar = parVar, foreachArgs =
-       foreachArgs)
+           parallelType, cluster = cluster,
+       packages = packages, parVar = parVar, foreachArgs =
+           foreachArgs)
 }
 
 DEoptim <- function(fn, lower, upper, control = DEoptim.control(), ...,
                     fnMap=NULL) {
-  if (length(lower) != length(upper))
-    stop("'lower' and 'upper' are not of same length")
-  if (!is.vector(lower))
-    lower <- as.vector(lower)
-  if (!is.vector(upper))
-    upper <- as.vector(upper)
-  if (any(lower > upper))
-    stop("'lower' > 'upper'")
-  if (any(lower == "Inf"))
-    warning("you set a component of 'lower' to 'Inf'. May imply 'NaN' results", immediate. = TRUE)
-  if (any(lower == "-Inf"))
-    warning("you set a component of 'lower' to '-Inf'. May imply 'NaN' results", immediate. = TRUE)
-  if (any(upper == "Inf"))
-    warning("you set a component of 'upper' to 'Inf'. May imply 'NaN' results", immediate. = TRUE)
-  if (any(upper == "-Inf"))
-    warning("you set a component of 'upper' to '-Inf'. May imply 'NaN' results", immediate. = TRUE)
-  if (!is.null(names(lower)))
-    nam <- names(lower)
-  else if (!is.null(names(upper)) & is.null(names(lower)))
-    nam <- names(upper)
-  else
-    nam <- paste("par", 1:length(lower), sep = "")
-
-  ctrl <- do.call(DEoptim.control, as.list(control))
-  ctrl$npar <- length(lower)
-   if(is.na(ctrl$NP))
-     ctrl$NP <- 10*length(lower)
-  if (ctrl$NP < 4) {
-    warning("'NP' < 4; set to default value 10*length(lower)\n",
-            immediate. = TRUE)
-    ctrl$NP <- 10*length(lower)
-  }
-  if (ctrl$NP < 10*length(lower)) 
-    warning("For many problems it is best to set 'NP' (in 'control') to be at least ten times the length of the parameter vector. \n", immediate. = TRUE)
-  if (!is.null(ctrl$initialpop)) {
-    ctrl$specinitialpop <- TRUE
-    if(!identical(as.numeric(dim(ctrl$initialpop)), as.numeric(c(ctrl$NP, ctrl$npar))))
-      stop("Initial population is not a matrix with dim. NP x length(upper).")
-  }
-  else {
-    ctrl$specinitialpop <- FALSE
-    ctrl$initialpop <- 0.0
-  }
-  ##
-  ctrl$trace <- as.numeric(ctrl$trace)
-  ctrl$specinitialpop <- as.numeric(ctrl$specinitialpop)
-  ctrl$initialpop <- as.numeric(ctrl$initialpop)
-  if(ctrl$parallelType == 2) { ## use foreach 
-    use.foreach <- suppressMessages(require(foreach,quietly=TRUE))
-    if(!use.foreach)
-      stop("foreach package not available but parallelType set to 2")
-    if(!foreach::getDoParRegistered()) {
-      foreach::registerDoSEQ()
+    if (length(lower) != length(upper))
+        stop("'lower' and 'upper' are not of same length")
+    if (!is.vector(lower))
+        lower <- as.vector(lower)
+    if (!is.vector(upper))
+        upper <- as.vector(upper)
+    if (any(lower > upper))
+        stop("'lower' > 'upper'")
+    if (any(lower == "Inf"))
+        warning("you set a component of 'lower' to 'Inf'. May imply 'NaN' results", immediate. = TRUE)
+    if (any(lower == "-Inf"))
+        warning("you set a component of 'lower' to '-Inf'. May imply 'NaN' results", immediate. = TRUE)
+    if (any(upper == "Inf"))
+        warning("you set a component of 'upper' to 'Inf'. May imply 'NaN' results", immediate. = TRUE)
+    if (any(upper == "-Inf"))
+        warning("you set a component of 'upper' to '-Inf'. May imply 'NaN' results", immediate. = TRUE)
+    if (!is.null(names(lower)))
+        nam <- names(lower)
+    else if (!is.null(names(upper)) & is.null(names(lower)))
+        nam <- names(upper)
+    else
+        nam <- paste("par", 1:length(lower), sep = "")
+    
+    ctrl <- do.call(DEoptim.control, as.list(control))
+    ctrl$npar <- length(lower)
+    if(is.na(ctrl$NP))
+        ctrl$NP <- 10*length(lower)
+    if (ctrl$NP < 4) {
+        warning("'NP' < 4; set to default value 10*length(lower)\n",
+                immediate. = TRUE)
+        ctrl$NP <- 10*length(lower)
     }
-    args <-  ctrl$foreachArgs
-    fnPop <- function(params, ...) {
-      my_chunksize <- ceiling(NROW(params)/foreach::getDoParWorkers())
-      my_iter <- iterators::iter(params,by="row",chunksize=my_chunksize)
-      args$i <- my_iter
-      args$.combine <- c
-      if (!is.null(args$.export))
-        args$.export = c(args$.export, "fn")
-      else
-        args$.export = "fn"
-      if (is.null(args$.errorhandling))
-        args$.errorhandling = c('stop', 'remove', 'pass')
-      if (is.null(args$.verbose))
-        args$.verbose = FALSE
-      if (is.null(args$.inorder))
-        args$.inorder = TRUE
-      if (is.null(args$.multicombine))
-        args$.multicombine = FALSE
+    if (ctrl$NP < 10*length(lower)) 
+        warning("For many problems it is best to set 'NP' (in 'control') to be at least ten times the length of the parameter vector. \n", immediate. = TRUE)
+    if (!is.null(ctrl$initialpop)) {
+        ctrl$specinitialpop <- TRUE
+        if(!identical(as.numeric(dim(ctrl$initialpop)), as.numeric(c(ctrl$NP, ctrl$npar))))
+            stop("Initial population is not a matrix with dim. NP x length(upper).")
+    }
+    else {
+        ctrl$specinitialpop <- FALSE
+        ctrl$initialpop <- 0.0
+    }
+    ##
+    ctrl$trace <- as.numeric(ctrl$trace)
+    ctrl$specinitialpop <- as.numeric(ctrl$specinitialpop)
+    ctrl$initialpop <- as.numeric(ctrl$initialpop)
+    if(!is.null(ctrl$cluster)) { ## use provided cluster
+        if(!inherits(ctrl$cluster, "cluster"))
+            stop("cluster is not a 'cluster' class object")
+        parallel::clusterExport(cl, ctrl$parVar)
+        fnPop <- function(params, ...) {
+            parallel::parApply(cl=ctrl$cluster,params,1,fn,...)
+        }
+    }
+    else if(ctrl$parallelType == 2) { ## use foreach 
+        if(!foreach::getDoParRegistered()) {
+            foreach::registerDoSEQ()
+        }
+        args <-  ctrl$foreachArgs
+        fnPop <- function(params, ...) {
+            my_chunksize <- ceiling(NROW(params)/foreach::getDoParWorkers())
+            my_iter <- iterators::iter(params,by="row",chunksize=my_chunksize)
+            args$i <- my_iter
+            args$.combine <- c
+            if (!is.null(args$.export))
+                args$.export = c(args$.export, "fn")
+            else
+                args$.export = "fn"
+            if (is.null(args$.errorhandling))
+                args$.errorhandling = c('stop', 'remove', 'pass')
+            if (is.null(args$.verbose))
+                args$.verbose = FALSE
+            if (is.null(args$.inorder))
+                args$.inorder = TRUE
+            if (is.null(args$.multicombine))
+                args$.multicombine = FALSE
+            foreach::"%dopar%"(do.call(foreach::foreach, args), apply(i,1,fn,...))
       
-      foreach::"%dopar%"(do.call(foreach::foreach, args), apply(i,1,fn,...))
-      
+        }
     }
-  }
-  else if(ctrl$parallelType == 1){ ## use parallel 
-    use.parallel <- suppressMessages(require(parallel,quietly=TRUE))
-    if(!use.parallel)
-      stop("parallel package not available but parallelType set to 1")
-    cl <- parallel::makeCluster(parallel::detectCores())
-    packFn <- function(packages) {
-      for(i in packages)
-        library(i, character.only = TRUE)
+    else if(ctrl$parallelType == 1){ ## use parallel 
+        cl <- parallel::makeCluster(parallel::detectCores())
+        packFn <- function(packages) {
+            for(i in packages)
+                library(i, character.only = TRUE)
+        }
+        parallel::clusterCall(cl, packFn, ctrl$packages)
+        parallel::clusterExport(cl, ctrl$parVar)
+        fnPop <- function(params, ...) {
+            parallel::parApply(cl=cl,params,1,fn,...)
+        }
     }
-    parallel::clusterCall(cl, packFn, ctrl$packages)
-    parallel::clusterExport(cl, ctrl$parVar)
-    fnPop <- function(params, ...) {
-      parallel::parApply(cl=cl,params,1,fn,...)
+    else {  ## use regular for loop / apply
+        fnPop <- function(params, ...) {
+            apply(params,1,fn,...)
+        }
     }
-  }
-  else {  ## use regular for loop / apply
-    fnPop <- function(params, ...) {
-      apply(params,1,fn,...)
-    }
-  }
-
-  ## Mapping function
-  if(is.null(fnMap)) {
-    fnMapC <- function(params,...) params
-  } else {
-    fnMapC <- function(params,...) {
-      mappedPop <- t(apply(params,1,fnMap))   ## run mapping function
-      if(all(dim(mappedPop) != dim(params)))  ## check results
-        stop("mapping function did not return an object with ",
-             "dim NP x length(upper).")
-      dups <- duplicated(mappedPop)  ## check for duplicates
-      np <- NCOL(mappedPop)
-      tries <- 0
+    
+    ## Mapping function
+    if(is.null(fnMap)) {
+        fnMapC <- function(params,...) params
+    } else {
+        fnMapC <- function(params,...) {
+            mappedPop <- t(apply(params,1,fnMap))   ## run mapping function
+            if(all(dim(mappedPop) != dim(params)))  ## check results
+                stop("mapping function did not return an object with ",
+                     "dim NP x length(upper).")
+            dups <- duplicated(mappedPop)  ## check for duplicates
+            np <- NCOL(mappedPop)
+            tries <- 0
       while(tries < 5 && any(dups)) {
         ##print('dups!'); flush.console()
         nd <- sum(dups)
