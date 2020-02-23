@@ -170,8 +170,7 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
   /* initialize parameter vector to pass to evaluate function */
   SEXP par;
   PROTECT(par = NEW_NUMERIC(i_D)); P++;
-  double *d_par = REAL(par);
-
+  
   /* Data structures for parameter vectors */
   SEXP sexp_gta_popP, sexp_gta_oldP, sexp_gta_newP, sexp_map_pop;
   PROTECT(sexp_gta_popP = allocMatrix(REALSXP, i_NP, i_D)); P++; /* FIXME THIS HAD 2x the rows!!! */
@@ -191,14 +190,8 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
   double *ngta_oldC = REAL(sexp_gta_oldC);
   double *ngta_newC = REAL(sexp_gta_newC);
 
-  double *gta_popC = (double *)R_alloc(i_NP*2,sizeof(double));
-  double *gta_oldC = (double *)R_alloc(i_NP,sizeof(double));
-  double *gta_newC = (double *)R_alloc(i_NP,sizeof(double));
-
   double *t_bestitP = (double *)R_alloc(1,sizeof(double) * i_D);
-  double *t_tmpP = (double *)R_alloc(1,sizeof(double) * i_D);
-  double *tempP = (double *)R_alloc(1,sizeof(double) * i_D);
-
+  
   SEXP sexp_t_tmpP, sexp_t_tmpC;
   PROTECT(sexp_t_tmpP = allocMatrix(REALSXP, i_NP, i_D)); P++;
   PROTECT(sexp_t_tmpC = allocVector(REALSXP, i_NP)); P++;
@@ -210,14 +203,12 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
 
   int ia_urn2[URN_DEPTH];
   int ia_urnTemp[i_NP];
-  int i_nstorepop, i_xav;
-  i_nstorepop = ceil((i_itermax - i_storepopfrom) / i_storepopfreq);
-
-  int popcnt, bestacnt, same; /* lazy cnters */
+  
+  int popcnt, bestacnt; /* lazy cnters */
 
   double d_jitter, d_dither;
 
-  double t_tmpC, tmp_best, t_bestC;
+  double t_bestC;
 
   double **initialpop = (double **)R_alloc(i_NP,sizeof(double *));
   for (int i = 0; i < i_NP; i++)
@@ -285,7 +276,6 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
   int i_iter = 0;
   popcnt = 0;
   bestacnt = 0;
-  i_xav = 1;
   int i_iter_tol = 0;
 
   while ((i_iter < i_itermax) && (t_bestC > VTR) && (i_iter_tol <= i_steptol))

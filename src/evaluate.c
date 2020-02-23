@@ -21,7 +21,7 @@ double evaluate(long *l_nfeval, SEXP par, SEXP fcall, SEXP env)
    return(f_result);
 }
 
-SEXP popEvaluate(long *l_nfeval, SEXP parMat, SEXP fcall, SEXP env)
+SEXP popEvaluate(long *l_nfeval, SEXP parMat, SEXP fcall, SEXP env, int incrementEval)
 {
    SEXP sexp_fvec, fn;
    double *d_result;

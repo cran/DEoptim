@@ -1,3 +1,13 @@
+Changes in version 2.2-5 
+  o Used tools::package_native_routine_registration_skeleton(".") to create 
+    src/DEoptim_init.c 
+  o In NAMESPACE, changed useDynLib(DEoptim) to useDynLib(DEoptim,
+    .registration = TRUE))
+  o removed unused variables from de4_0.c:  tmp_best, t_tmpC, same,
+    i_xav, i_nstorepop, tempP, gta_newC, gta_oldC, popC, d_par
+  o definition of popEvaluate(long *l_nfeval, SEXP parMat, SEXP fcall,
+    SEXP env)  changed to include a 5th integer argument, to remove warning
+    about type mismatch with previous definition
 Changes in version 2.2-4
   o Vignette source code included in package.
   o New option 'cluster' allows passing existing parallel cluster, using 
