@@ -40,7 +40,6 @@ void devol(double VTR, double d_weight, double fcross, int i_bs_flag,
            int *gi_iter, double d_pPct, double d_c, long *l_nfeval,
            double d_reltol, int i_steptol, SEXP fnMap);
 void permute(int ia_urn2[], int i_urn2_depth, int i_NP, int i_avoid, int ia_urn1[]);
-double evaluate(long *l_nfeval, SEXP par, SEXP fcall, SEXP env);
 SEXP popEvaluate(long *l_nfeval, SEXP parMat, SEXP fcall, SEXP env, int incrementEval);
 
 
@@ -167,9 +166,6 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
 #define URN_DEPTH  5   /* 4 + one index to avoid */
 
   int P=0;
-  /* initialize parameter vector to pass to evaluate function */
-  SEXP par;
-  PROTECT(par = NEW_NUMERIC(i_D)); P++;
   
   /* Data structures for parameter vectors */
   SEXP sexp_gta_popP, sexp_gta_oldP, sexp_gta_newP, sexp_map_pop;
@@ -194,10 +190,8 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
   
   SEXP sexp_t_tmpP, sexp_t_tmpC;
   PROTECT(sexp_t_tmpP = allocMatrix(REALSXP, i_NP, i_D)); P++;
-  PROTECT(sexp_t_tmpC = allocVector(REALSXP, i_NP)); P++;
   double *nt_tmpP = REAL(sexp_t_tmpP);
-  double *nt_tmpC = REAL(sexp_t_tmpC);
-
+  
   int i, j, k;  /* counting variables */
   int i_r1, i_r2, i_r3;  /* placeholders for random indexes */
 
@@ -218,7 +212,7 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
   int i_pbest;
   int p_NP = round(d_pPct * i_NP);  /* choose at least two best solutions */
       p_NP = p_NP < 2 ? 2 : p_NP;
-  int sortIndex[i_NP];              /* sorted values of gta_oldC */
+  int sortIndex[i_NP];              /* sorted values of ngta_oldC */
   for(i = 0; i < i_NP; i++) sortIndex[i] = i;
   //double goodCR = 0, goodF = 0, goodF2 = 0, meanCR = 0.5, meanF = 0.5;
   double goodCR = 0, goodF = 0, goodF2 = 0, meanCR = d_cross, meanF = d_weight;
@@ -254,13 +248,16 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
         ngta_popP[i+i_NP*j] = initialpop[i][j];
     }
   }
-  PROTECT(sexp_map_pop  = popEvaluate(l_nfeval, sexp_gta_popP, fnMap, rho, 0));
-  memmove(REAL(sexp_gta_popP), REAL(sexp_map_pop), i_NP * i_D * sizeof(double)); // valgrind reports memory overlap here
-  UNPROTECT(1);  // sexp_map_pop
+  if(!isNull(fnMap)) {
+    PROTECT(sexp_map_pop  = popEvaluate(l_nfeval, sexp_gta_popP, fnMap, rho, 0));
+    memmove(REAL(sexp_gta_popP), REAL(sexp_map_pop), i_NP * i_D * sizeof(double)); // valgrind reports memory overlap here
+    UNPROTECT(1);  // sexp_map_pop
+  }
   PROTECT(sexp_gta_popC = popEvaluate(l_nfeval, sexp_gta_popP,  fcall, rho, 1));
   ngta_popC = REAL(sexp_gta_popC);
-  for (i = 0; i < i_NP; i++) {
-    if (i == 0 || ngta_popC[i] <= t_bestC) {
+  t_bestC = ngta_popC[0];
+  for (i = 1; i < i_NP; i++) {
+    if (ngta_popC[i] <= t_bestC) {
       t_bestC = ngta_popC[i];
       for (j = 0; j < i_D; j++)
         gt_bestP[j]=ngta_popP[i+i_NP*j];
@@ -309,7 +306,7 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
 
     /*---DE/current-to-p-best/1 ----------------------------------------------*/
     if (i_strategy == 6) {
-      /* create a copy of gta_oldC to avoid changing it */
+      /* create a copy of ngta_oldC to avoid changing it */
       double temp_oldC[i_NP];
       for(j = 0; j < i_NP; j++) temp_oldC[j] = ngta_oldC[j];
 
@@ -320,10 +317,9 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
     /*----start of loop through ensemble------------------------*/
     for (i = 0; i < i_NP; i++) {
 
-      /*t_tmpP is the vector to mutate and eventually select*/
+      /*nt_tmpP is the vector to mutate and eventually select*/
       for (j = 0; j < i_D; j++)
         nt_tmpP[i+i_NP*j] = ngta_oldP[i+i_NP*j];
-      nt_tmpC[i] = ngta_oldC[i];
 
       permute(ia_urn2, URN_DEPTH, i_NP, i, ia_urnTemp); /* Pick 4 random and distinct */
 
@@ -411,14 +407,15 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
 
     } /* NEW End mutation loop through ensemble */
 
-    /*------Trial mutation now in t_tmpP-----------------*/
+    /*------Trial mutation now in nt_tmpP-----------------*/
     /* evaluate mutated population */
-    if(i_iter > 1) UNPROTECT(1);  // previous iteration's sexp_t_tmpC
-    PROTECT(sexp_map_pop = popEvaluate(l_nfeval, sexp_t_tmpP,  fnMap, rho, 0));
-    memmove(REAL(sexp_t_tmpP), REAL(sexp_map_pop), i_NP * i_D * sizeof(double)); // valgrind reports memory overlap here
-    UNPROTECT(1);  // sexp_map_pop
+    if(!isNull(fnMap)) {
+      PROTECT(sexp_map_pop = popEvaluate(l_nfeval, sexp_t_tmpP,  fnMap, rho, 0));
+      memmove(REAL(sexp_t_tmpP), REAL(sexp_map_pop), i_NP * i_D * sizeof(double)); // valgrind reports memory overlap here
+      UNPROTECT(1);  // sexp_map_pop
+    }
     PROTECT(sexp_t_tmpC  = popEvaluate(l_nfeval, sexp_t_tmpP, fcall, rho, 1));
-    nt_tmpC = REAL(sexp_t_tmpC);
+    double *nt_tmpC = REAL(sexp_t_tmpC);
 
     /* compare old pop with mutated pop */
     for (i = 0; i < i_NP; i++) {
@@ -448,6 +445,7 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
 
       }
     } /* End mutation loop through ensemble */
+    UNPROTECT(1);  // sexp_t_tmpC
    
     if (d_c > 0) { /* calculate new meanCR and meanF */
       meanCR = (1-d_c)*meanCR + d_c*goodCR;
@@ -547,7 +545,7 @@ void devol(double VTR, double d_weight, double d_cross, int i_bs_flag,
   *gt_bestC = t_bestC;
 
   PutRNGstate();
-  UNPROTECT(P+1);
+  UNPROTECT(P);
 
 }
 
