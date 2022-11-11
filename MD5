@@ -1,7 +1,7 @@
-5e70bf58c3eeab52400b5fcab73353fc *DESCRIPTION
-ebe927d57dc50e61f8780cbf2d2d82ae *NAMESPACE
-5bda3534c47b46da35b6ab7c9958a416 *NEWS
-3a0e28fbc8e5e0ae5740033fd106ed0a *R/DEoptim.R
+ba5472562398f85fff7328dbe520a48f *DESCRIPTION
+86d11286932dea50e8374ef8bc273af3 *NAMESPACE
+351b5b2f6e6187a758217d01e4e199fa *NEWS
+a3a2a6b8c77846febddbf4722cc2dbea *R/DEoptim.R
 b842f7e58d4b9733360ac58a71e90a95 *R/methods.R
 a9a0289d3f2083fd6232760e941b70a1 *R/zzz.R
 c6c11d291a7de5bd0cb780bbea370758 *README.md
@@ -19,7 +19,7 @@ e479bdb74cb5b98763bc09f3983c87b4 *man/DEoptim.control.Rd
 63621de55ebb83c3a6951b7ee6215adf *man/SMI.Rd
 3e89edc23cca26ccf3093a962aec0478 *man/xrrData.Rd
 7bd7be8eb8490da9458fad71556e3b2c *src/DEoptim_init.c
-680eca40e2a3add9939b609c4c197013 *src/de4_0.c
+ec80a3ec79fbff8fabf3cce9ac02843d *src/de4_0.c
 415ec1e3e787725ba91373d18257359e *src/evaluate.c
 6a2399c9da194de475dd25a6d4addf28 *src/get_element.c
 3680d9a3a93430c75999ddb2d72fa394 *tests/tests.R
